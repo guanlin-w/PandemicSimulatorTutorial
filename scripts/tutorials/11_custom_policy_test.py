@@ -41,6 +41,9 @@ def run_pandemic_gym_env() -> None:
         # run stage-0 action steps in the environment
         wrap.reset()
         Reward = 0
+
+        Prev = 0
+        Trajectory = 0
         for i in trange(120, desc='Simulating day'):
             
             if i==0:
@@ -49,12 +52,30 @@ def run_pandemic_gym_env() -> None:
             else:                
                 #######################################################################################################################################            
                 #Replace the code in the below if-else statement with your own policy
-                if obs.time_day[...,0]>20:
-                    action = 1
-                elif not obs.infection_above_threshold:
-                    action = 0
-                else:
+                Cur = obs.global_testing_summary[...,2]
+                if obs.infection_above_threshold and obs.time_day[...,0]<30:
                     action = 4
+                else:
+                    if Cur - Prev > 0:
+                        Trajectory += 1
+                    else:
+                        Trajectory -= 1
+
+                    if Trajectory >= 5:
+                        action = action + 1 if action < 4 else 4
+                        Trajectory = 0
+
+                    if Trajectory <= -5:
+                        action = action - 1 if action > 0 else 0
+                        Trajectory = 0
+                    Prev = Cur
+                
+                # if obs.time_day[...,0]>20:
+                #     action = 1
+                # elif not obs.infection_above_threshold:
+                #     action = 0
+                # else:
+                #     action = 4
                 ########################################################################################################################################
             obs, reward, done, aux = wrap.step(action=int(action))  # here the action is the discrete regulation stage identifier
             print(obs)
