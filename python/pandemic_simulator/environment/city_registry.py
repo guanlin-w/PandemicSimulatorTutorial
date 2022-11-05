@@ -9,7 +9,7 @@ from .interfaces import LocationID, Location, PersonID, Person, Registry, Regist
     LocationState
 from pandemic_simulator.environment.interfaces.location_base_business import BusinessBaseLocation
 from .location.cemetery import Cemetery
-
+from .location.home import Home
 __all__ = ['CityRegistry']
 
 
@@ -101,6 +101,13 @@ class CityRegistry(Registry):
         if next_location.id != current_location.id and not next_location.is_entry_allowed(person_id):
             # if entry to the next location is not allowed
             return False
+
+        
+        # handle apartment entry if applicable
+        if type(next_location) is Home:
+            next_location.process_apartment()
+    
+
 
         # update person and location state
         current_location.remove_person_from_location(person_id)  # exit current

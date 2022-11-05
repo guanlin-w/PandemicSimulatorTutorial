@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from ..interfaces import LocationState, ContactRate, SimTime, SimTimeTuple, LocationRule, globals, BaseLocation
+from ..interfaces import LocationState, Location, ContactRate, SimTime, SimTimeTuple, LocationRule, globals, BaseLocation
 
 __all__ = ['Home', 'HomeState']
 
@@ -11,7 +11,7 @@ __all__ = ['Home', 'HomeState']
 class HomeState(LocationState):
     contact_rate: ContactRate = ContactRate(0, 1, 0, 0.5, 0.3, 0.3)
     visitor_time = SimTimeTuple(hours=tuple(range(15, 20)), days=tuple(globals.numpy_rng.randint(0, 365, 12)))
-
+    apartment = None
 
 class Home(BaseLocation[HomeState]):
     """Class that implements a standard Home location. """
@@ -23,3 +23,10 @@ class Home(BaseLocation[HomeState]):
 
     def update_rules(self, new_rule: LocationRule) -> None:
         pass
+    
+    def update_apartment_complex(self, apt:Location):
+        self._state.apartment = apt
+    
+    def process_apartment(self):
+        if self._state.apartment is not None:
+            apartment
