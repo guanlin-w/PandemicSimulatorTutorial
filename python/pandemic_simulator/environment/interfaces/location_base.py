@@ -1,6 +1,7 @@
 # Confidential, Copyright 2020, Sony Corporation of America, All rights reserved.
 from abc import ABCMeta
 from copy import deepcopy
+from curses import pair_number
 from typing import Optional, cast, TypeVar, Union
 from uuid import uuid4
 
@@ -30,6 +31,7 @@ class BaseLocation(Location[_State], metaclass=ABCMeta):
     _registry: Registry
     _numpy_rng: np.random.RandomState
     _current_sim_time: SimTime
+    _coordinates: tuple[int, int]
 
     def __init__(self, loc_id: Union[str, LocationID, None] = None, init_state: Optional[_State] = None):
         """
@@ -48,6 +50,7 @@ class BaseLocation(Location[_State], metaclass=ABCMeta):
 
         self._state = deepcopy(self._init_state)
         self._registry.register_location(self)
+        self._coordinates = (-1, -1)
 
     @property
     def id(self) -> LocationID:
@@ -60,6 +63,10 @@ class BaseLocation(Location[_State], metaclass=ABCMeta):
     @property
     def state(self) -> _State:
         return self._state
+    
+    @property
+    def coordinates(self) -> tuple[int, int]:
+        return self._coordinates
 
     def sync(self, sim_time: SimTime) -> None:
         self._current_sim_time = sim_time
@@ -102,6 +109,9 @@ class BaseLocation(Location[_State], metaclass=ABCMeta):
         else:
             # person is not in location
             pass
+    
+    def assign_geographic_coordinates(self, coordinates: tuple) -> None:
+        self._coordinates = coordinates
 
     def reset(self) -> None:
         self._state = deepcopy(self._init_state)

@@ -29,6 +29,9 @@ class BasePerson(Person):
     _regulation_compliance_prob: float
     _go_home: bool
 
+    _uses_car: bool
+    _last_location: LocationID
+
     def __init__(self,
                  person_id: PersonID,
                  home: LocationID,
@@ -60,6 +63,7 @@ class BasePerson(Person):
         self._go_home = False
 
     def enter_location(self, location_id: LocationID) -> bool:
+        _last_location = self._state.current_location
         if location_id == self._home:
             self._go_home = False
         if location_id == self._state.current_location:
@@ -212,6 +216,9 @@ class BasePerson(Person):
                 ):
                     return cast(LocationID, loc_ids[i])
         return None
+
+    def get_commute(self) -> tuple[LocationID, LocationID]:
+        return tuple((self._last_location, self._state.current_location))
 
     def reset(self) -> None:
         self._state = deepcopy(self._init_state)

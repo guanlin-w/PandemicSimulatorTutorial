@@ -2,10 +2,12 @@
 
 from collections import defaultdict, OrderedDict
 from itertools import product as cartesianproduct, combinations
+from random import randint, random
 from typing import DefaultDict, Dict, List, Optional, Sequence, cast, Type
 
 import numpy as np
 from orderedset import OrderedSet
+import math
 
 from .contact_tracing import MaxSlotContactTracer
 from .infection_model import SEIRModel, SpreadProbabilityParams
@@ -74,6 +76,29 @@ class PandemicSim:
         assert globals.registry, 'No registry found. Create the repo wide registry first by calling init_globals()'
         self._registry = globals.registry
         self._numpy_rng = globals.numpy_rng
+
+        # Assign geographic data to locations:
+        # First, determine total number of "plots" in world grid
+        num_locations = len(locations)
+        grid_length = int(math.sqrt(num_locations)) + 1
+        grid_size = grid_length ** 2
+        density = num_locations / grid_size
+
+        # Create list of all open plots
+        available_plots = []
+        for i in range(grid_length):
+            for j in range(grid_length):
+                available_plots.append(tuple((i, j)))
+
+        # For each location, assign it a random plot and remove from available_plots
+        for loc in locations:
+            plot = available_plots[randint(0, len(available_plots) - 1)]
+            available_plots.remove(plot)
+            loc.assign_geographic_coordinates(plot)
+
+        # Parameters
+        driver_percentage = 0.27
+
 
         self._id_to_location = OrderedDict({loc.id: loc for loc in locations})
         assert self._registry.location_ids.issuperset(self._id_to_location)
@@ -272,6 +297,22 @@ class PandemicSim:
         for i in self._numpy_rng.randint(0, len(self._persons), len(self._persons)):
             self._persons[i].step(self._state.sim_time, self._contact_tracer)
 
+
+        # Generate person commutes, update data structures
+        for person in self._id_to_person.values():
+            last_location_id, current_location_id = person.get_commute()
+            start_location = self._id_to_location[last_location_id]
+            end_location = self._id_to_location[current_location_id]
+            
+            start_coordinates = start_location.coordinates
+            end_coordinates = end_location.coordinates
+
+
+            # If applicable, compute middle stop.
+
+            # From stop coordinates, figure out the two buses
+            # TODO: Need map from coordinates to location id
+            # From location id/location, get the tightest stop for final bus
         # update person contacts
         for location in self._id_to_location.values():
             contacts = self._compute_contacts(location)

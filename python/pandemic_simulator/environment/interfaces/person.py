@@ -70,6 +70,15 @@ class Person(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_commute(self) -> tuple[LocationID, LocationID]:
+        """
+        Get the last location and current location of a person.
+
+        :return: Tuple containing the last and current location
+        """
+        pass
+
     @property
     @abstractmethod
     def id(self) -> PersonID:
