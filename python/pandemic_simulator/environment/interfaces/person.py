@@ -110,6 +110,23 @@ class Person(ABC):
 
     @property
     @abstractmethod
+    def uses_public_transit(self) -> bool:
+        """
+        Property that returns whether the person uses public transit.
+
+        :return: True if they use public transit, False otherwise.
+        """
+        pass
+
+    @abstractmethod
+    def set_uses_public_transit(self, uses_public_transit: True) -> None:
+        """
+        Setter for using public transit.
+        """
+        pass
+
+    @property
+    @abstractmethod
     def state(self) -> PersonState:
         """
         Property that returns the current state of the person.

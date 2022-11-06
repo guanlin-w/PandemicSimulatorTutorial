@@ -9,6 +9,8 @@ import numpy as np
 from orderedset import OrderedSet
 import math
 
+from .location.subway import SubwayManager, Subway
+
 from .contact_tracing import MaxSlotContactTracer
 from .infection_model import SEIRModel, SpreadProbabilityParams
 from .interfaces import ContactRate, ContactTracer, PandemicRegulation, PandemicSimState, PandemicTesting, \
@@ -49,6 +51,7 @@ class PandemicSim:
     _hospital_ids: List[LocationID]
     _persons: Sequence[Person]
     _state: PandemicSimState
+    _subway_manager: SubwayManager
 
     def __init__(self,
                  locations: Sequence[Location],
@@ -84,6 +87,7 @@ class PandemicSim:
         grid_size = grid_length ** 2
         density = num_locations / grid_size
 
+
         # Create list of all open plots
         available_plots = []
         for i in range(grid_length):
@@ -96,12 +100,56 @@ class PandemicSim:
             available_plots.remove(plot)
             loc.assign_geographic_coordinates(plot)
 
-        # Parameters
+        # Assign drivers vs. non-drivers
         driver_percentage = 0.27
+        for person in persons:
+            if random() < driver_percentage:
+                person.set_uses_public_transit(False)
+
+        # Set up subways
+        self._subway_manager = SubwayManager(0.5, 4, 25, grid_length)
+        stop_frequency = self._subway_manager.stop_frequency
+
+        subway_id_counter: int = 0
+        subway_list: List[Subway] = []
+
+        for x_index in range(round(grid_length / stop_frequency)):
+            x_coordinate = (int)(stop_frequency) * x_index
+            y_coordinate = randint(0, grid_length - 1)
+            start_location = (x_coordinate, y_coordinate)
+            subway_id = "subway_" + str(subway_id_counter)
+            subway_id_counter = subway_id_counter + 1
+            subway: Subway = Subway(subway_id)
+            subway.configure_train(True, start_location, 1)
+            subway_list.append(subway)
+            subway_code = x_coordinate + 0.0
+            print("adding " + str(subway_code))
+            self._subway_manager.add_subway(subway_code, subway)
+
+        for y_index in range(round(grid_length / stop_frequency)):
+            y_coordinate = (int)(stop_frequency) * y_index
+            x_coordinate = randint(0, grid_length - 1)
+
+            start_location = (x_coordinate, y_coordinate)
+
+            subway_id = "subway_" + str(subway_id_counter)
+            subway_id_counter = subway_id_counter + 1
+            subway: Subway = Subway(subway_id)
+            subway.configure_train(True, start_location, 1)
+            subway_list.append(subway)
+            subway_code = y_coordinate + 0.1
+            print("adding " + str(subway_code))
+            self._subway_manager.add_subway(subway_code, subway)
 
 
         self._id_to_location = OrderedDict({loc.id: loc for loc in locations})
         assert self._registry.location_ids.issuperset(self._id_to_location)
+
+
+        # Add the subways
+        for subway in subway_list:
+            self._id_to_location[subway.id] = subway
+
         self._id_to_person = OrderedDict({p.id: p for p in persons})
         assert self._registry.person_ids.issuperset(self._id_to_person)
 
@@ -191,35 +239,41 @@ class PandemicSim:
         return self._registry
 
     def _compute_contacts(self, location: Location) -> OrderedSet:
-        assignees = location.state.assignees_in_location
-        visitors = location.state.visitors_in_location
-        cr = location.state.contact_rate
-
-        groups = [(assignees, assignees),
-                  (assignees, visitors),
-                  (visitors, visitors)]
-        constraints = [(cr.min_assignees, cr.fraction_assignees),
-                       (cr.min_assignees_visitors, cr.fraction_assignees_visitors),
-                       (cr.min_visitors, cr.fraction_visitors)]
-
         contacts: OrderedSet = OrderedSet()
 
-        for grp, cst in zip(groups, constraints):
-            grp1, grp2 = grp
-            minimum, fraction = cst
+        if location.uses_higher_time_scale:
+            # For now, this should be subways and apartments
+            help = 0
+        else:
+            assignees = location.state.assignees_in_location
+            visitors = location.state.visitors_in_location
+            cr = location.state.contact_rate
 
-            possible_contacts = list(combinations(grp1, 2) if grp1 == grp2 else cartesianproduct(grp1, grp2))
-            num_possible_contacts = len(possible_contacts)
+            groups = [(assignees, assignees),
+                    (assignees, visitors),
+                    (visitors, visitors)]
+            constraints = [(cr.min_assignees, cr.fraction_assignees),
+                        (cr.min_assignees_visitors, cr.fraction_assignees_visitors),
+                        (cr.min_visitors, cr.fraction_visitors)]
 
-            if len(possible_contacts) == 0:
-                continue
+            
 
-            fraction_sample = min(1., max(0., self._numpy_rng.normal(fraction, 1e-2)))
-            real_fraction = max(minimum, int(fraction_sample * num_possible_contacts))
+            for grp, cst in zip(groups, constraints):
+                grp1, grp2 = grp
+                minimum, fraction = cst
 
-            # we are using an orderedset, it's repeatable
-            contact_idx = self._numpy_rng.randint(0, num_possible_contacts, real_fraction)
-            contacts.update([possible_contacts[idx] for idx in contact_idx])
+                possible_contacts = list(combinations(grp1, 2) if grp1 == grp2 else cartesianproduct(grp1, grp2))
+                num_possible_contacts = len(possible_contacts)
+
+                if len(possible_contacts) == 0:
+                    continue
+
+                fraction_sample = min(1., max(0., self._numpy_rng.normal(fraction, 1e-2)))
+                real_fraction = max(minimum, int(fraction_sample * num_possible_contacts))
+
+                # we are using an orderedset, it's repeatable
+                contact_idx = self._numpy_rng.randint(0, num_possible_contacts, real_fraction)
+                contacts.update([possible_contacts[idx] for idx in contact_idx])
 
         return contacts
 
@@ -301,18 +355,17 @@ class PandemicSim:
         # Generate person commutes, update data structures
         for person in self._id_to_person.values():
             last_location_id, current_location_id = person.get_commute()
+            if last_location_id == '' or current_location_id == '':
+                continue
             start_location = self._id_to_location[last_location_id]
             end_location = self._id_to_location[current_location_id]
             
             start_coordinates = start_location.coordinates
             end_coordinates = end_location.coordinates
 
+            if (person.uses_public_transit):
+                self._subway_manager.commute(person.id, start_coordinates, end_coordinates)
 
-            # If applicable, compute middle stop.
-
-            # From stop coordinates, figure out the two buses
-            # TODO: Need map from coordinates to location id
-            # From location id/location, get the tightest stop for final bus
         # update person contacts
         for location in self._id_to_location.values():
             contacts = self._compute_contacts(location)

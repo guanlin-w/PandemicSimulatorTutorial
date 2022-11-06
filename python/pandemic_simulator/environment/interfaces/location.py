@@ -77,6 +77,16 @@ class Location(ABC, Generic[_State]):
         """
         pass
 
+    @property
+    @abstractmethod
+    def uses_higher_time_scale(self) -> bool:
+        """
+        Property that returns whether the location measures contacts in minutes (true) or hours
+
+        :return: True if in minutes, false if in hours.
+        """
+        pass
+
     @abstractmethod
     def sync(self, sim_time: SimTime) -> None:
         """

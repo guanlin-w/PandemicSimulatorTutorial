@@ -32,6 +32,7 @@ class BaseLocation(Location[_State], metaclass=ABCMeta):
     _numpy_rng: np.random.RandomState
     _current_sim_time: SimTime
     _coordinates: tuple[int, int]
+    _uses_higher_time_scale: bool
 
     def __init__(self, loc_id: Union[str, LocationID, None] = None, init_state: Optional[_State] = None):
         """
@@ -51,6 +52,7 @@ class BaseLocation(Location[_State], metaclass=ABCMeta):
         self._state = deepcopy(self._init_state)
         self._registry.register_location(self)
         self._coordinates = (-1, -1)
+        self._uses_higher_time_scale = False
 
     @property
     def id(self) -> LocationID:
@@ -67,6 +69,10 @@ class BaseLocation(Location[_State], metaclass=ABCMeta):
     @property
     def coordinates(self) -> tuple[int, int]:
         return self._coordinates
+
+    @property
+    def uses_higher_time_scale(self) -> bool:
+        return self._uses_higher_time_scale
 
     def sync(self, sim_time: SimTime) -> None:
         self._current_sim_time = sim_time
