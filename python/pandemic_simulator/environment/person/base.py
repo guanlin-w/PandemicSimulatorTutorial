@@ -29,6 +29,9 @@ class BasePerson(Person):
     _regulation_compliance_prob: float
     _go_home: bool
 
+    _uses_public_transit: bool
+    _last_location: LocationID
+
     def __init__(self,
                  person_id: PersonID,
                  home: LocationID,
@@ -58,8 +61,11 @@ class BasePerson(Person):
         self._cemetery_ids = list(self._registry.location_ids_of_type(Cemetery))
         self._hospital_ids = list(self._registry.location_ids_of_type(Hospital))
         self._go_home = False
+        self._last_location = ""
+        self._uses_public_transit = True
 
     def enter_location(self, location_id: LocationID) -> bool:
+        self._last_location = self._state.current_location
         if location_id == self._home:
             self._go_home = False
         if location_id == self._state.current_location:
@@ -86,6 +92,10 @@ class BasePerson(Person):
     @property
     def assigned_locations(self) -> Sequence[LocationID]:
         return self._home,
+
+    @property
+    def uses_public_transit(self) -> bool:
+        return self._uses_public_transit
 
     def _sync(self, sim_time: SimTime) -> None:
         """Sync sim time specific variables."""
@@ -212,6 +222,12 @@ class BasePerson(Person):
                 ):
                     return cast(LocationID, loc_ids[i])
         return None
+
+    def get_commute(self) -> tuple[LocationID, LocationID]:
+        return tuple((self._last_location, self._state.current_location))
+
+    def set_uses_public_transit(self, uses_public_transit: True) -> None:
+        self._uses_public_transit = uses_public_transit
 
     def reset(self) -> None:
         self._state = deepcopy(self._init_state)

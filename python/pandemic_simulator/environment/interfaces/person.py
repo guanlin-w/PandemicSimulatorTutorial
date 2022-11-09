@@ -70,6 +70,15 @@ class Person(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_commute(self) -> tuple[LocationID, LocationID]:
+        """
+        Get the last location and current location of a person.
+
+        :return: Tuple containing the last and current location
+        """
+        pass
+
     @property
     @abstractmethod
     def id(self) -> PersonID:
@@ -98,6 +107,23 @@ class Person(ABC):
 
         :return: A collection of LocationIDs
         """
+
+    @property
+    @abstractmethod
+    def uses_public_transit(self) -> bool:
+        """
+        Property that returns whether the person uses public transit.
+
+        :return: True if they use public transit, False otherwise.
+        """
+        pass
+
+    @abstractmethod
+    def set_uses_public_transit(self, uses_public_transit: True) -> None:
+        """
+        Setter for using public transit.
+        """
+        pass
 
     @property
     @abstractmethod

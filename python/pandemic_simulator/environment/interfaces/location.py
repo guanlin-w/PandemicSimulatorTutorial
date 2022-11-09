@@ -67,6 +67,26 @@ class Location(ABC, Generic[_State]):
         """
         pass
 
+    @property
+    @abstractmethod
+    def coordinates(self) -> tuple[int, int]:
+        """
+        Property that returns the location's geographic coordinates.
+
+        :return: Coordinates of the location.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def uses_higher_time_scale(self) -> bool:
+        """
+        Property that returns whether the location measures contacts in minutes (true) or hours
+
+        :return: True if in minutes, false if in hours.
+        """
+        pass
+
     @abstractmethod
     def sync(self, sim_time: SimTime) -> None:
         """
@@ -107,6 +127,11 @@ class Location(ABC, Generic[_State]):
     @abstractmethod
     def remove_person_from_location(self, person_id: PersonID) -> None:
         """Removes a person with the given ID from the location"""
+        pass
+
+    @abstractmethod
+    def assign_geographic_coordinates(self, coordinates: tuple) -> None:
+        """Assign this location to a point in the world coordinate space"""
         pass
 
     @abstractmethod
