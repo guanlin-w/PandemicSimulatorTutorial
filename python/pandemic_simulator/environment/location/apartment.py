@@ -12,3 +12,12 @@ __all__ = ['Apartment', 'ApartmentState']
 @dataclass
 def ApartmentState(LocationState):
     test_rate = 0
+
+
+def Apartment(BaseLocation[ApartmentState])
+    def sync(self, sim_time: SimTime) -> None:
+        super().sync(sim_time)
+
+    def update_rules(self, new_rule: LocationRule) -> None:
+        pass
+
