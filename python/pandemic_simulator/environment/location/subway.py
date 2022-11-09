@@ -20,17 +20,19 @@ class SubwayState(BusinessLocationState):
     speed: int = 1
     """Measured in minutes per block"""
 
-    contact_rate: ContactRate = ContactRate(0, 1, 0, 0.2, 0.25, 0.3)
+    contact_rate: ContactRate = ContactRate(0, 0, 0, 0.0, 0.0, 0.3)
 
     open_time: SimTimeTuple = field(default_factory=SimTimeTuple, init=False)
     """Always open"""
+
+    route_length: int = -1
 
 
 class Subway(EssentialBusinessBaseLocation[SubwayState]):
     """Implements a subway location."""
 
     state_type = SubwayState
-    riders: dict[PersonID, tuple[int, int]] = {}
+    riders: list[list[PersonID]] = []
 
     def configure_train(self, northbound: bool, start_location: tuple[int, int], speed: int):
         state = cast(SubwayState, self._state)
@@ -47,17 +49,32 @@ class Subway(EssentialBusinessBaseLocation[SubwayState]):
         # North/South train, station reachable
         if (state.start_location[0] == desired_stop[0] and state.northbound):
             y_diff = (desired_stop[1] - state.start_location[1])
+            if y_diff == 0:
+                y_diff = state.route_length
             time = (last_minute / (y_diff * state.speed)) * ((y_diff * state.speed))
 
         # East/West train, station reachable
         if (state.start_location[1] == desired_stop[1] and not state.northbound):
             x_diff = (desired_stop[0] - state.start_location[0])
+            if x_diff == 0:
+                x_diff = state.route_length
             time = (last_minute / (x_diff * state.speed)) * ((x_diff * state.speed))
 
         return time
+
+    def configure_riders(self):
+        for i in range(60):
+            temp: list[PersonID] = []
+            self.riders.append(temp)
     
     def log_rider(self, person: PersonID, start_time: int, end_time: int):
-        self.riders[person] = (start_time, end_time)
+        if (len(self.riders) != 60):
+            self.configure_riders()
+        for i in range((int)(start_time), (int)(end_time), 1):
+            self.riders[i].append(person)
+
+    def get_riders(self) -> list[list[PersonID]]:
+        return self.riders
 
 
 class SubwayManager():
@@ -75,6 +92,7 @@ class SubwayManager():
 
     # Adds the subway to the collection for routing.
     def add_subway(self, subway_code: float, subway: Subway) -> None:
+        subway.state.route_length = self.train_route_length
         self.codes_to_subways[subway_code] = subway
     
     # Returns time the person leaves their start location
@@ -82,6 +100,9 @@ class SubwayManager():
         # From location coordinates, compute nearest stop coordinates:
         origin_stop_coordinates = (self.stop_frequency * (int)(start_location[0] / self.stop_frequency), self.stop_frequency * (int)(start_location[1] / self.stop_frequency))
         destination_stop_coordinates = (self.stop_frequency * (int)(end_location[0] / self.stop_frequency), self.stop_frequency * (int)(end_location[1] / self.stop_frequency))
+
+        if (origin_stop_coordinates == destination_stop_coordinates):
+            return 60
 
         departure_time = -1
         if (origin_stop_coordinates[0] == destination_stop_coordinates[0]):
@@ -91,7 +112,7 @@ class SubwayManager():
             train = (self.codes_to_subways[code])
             delta = destination_stop_coordinates[1] - origin_stop_coordinates[1]
             distance = delta if delta > 0 else self.train_route_length + delta
-            ride_duration = max(self.max_train_time, train.state.speed * distance)
+            ride_duration = min(self.max_train_time, train.state.speed * distance)
             departure_time = train.get_latest_time_at_stop((60 - ride_duration), destination_stop_coordinates)
             train.log_rider(person, departure_time, 60)
         elif (origin_stop_coordinates[1] == destination_stop_coordinates[1]):        
@@ -101,7 +122,7 @@ class SubwayManager():
             train = (self.codes_to_subways[code])
             delta = destination_stop_coordinates[0] - origin_stop_coordinates[0]
             distance = delta if delta > 0 else self.train_route_length + delta
-            ride_duration = max(self.max_train_time, train.state.speed * distance)
+            ride_duration = min(self.max_train_time, train.state.speed * distance)
             departure_time = train.get_latest_time_at_stop((60 - ride_duration), destination_stop_coordinates)
             train.log_rider(person, departure_time, 60)
         else:
@@ -123,7 +144,7 @@ class SubwayManager():
                 train = (route_list[1])
                 delta = intermediate_stop[1] - origin_stop_coordinates[1]
                 distance = delta if delta > 0 else self.train_route_length + delta
-                ride_duration = max(self.max_train_time, train.state.speed * distance)
+                ride_duration = min(self.max_train_time, train.state.speed * distance)
                 connection_time = train.get_latest_time_at_stop((60 - ride_duration), intermediate_stop)
                 train.log_rider(person, connection_time, 60)
 
@@ -140,7 +161,7 @@ class SubwayManager():
                 train = (route_list[1])
                 delta = intermediate_stop[0] - origin_stop_coordinates[0]
                 distance = delta if delta > 0 else self.train_route_length + delta
-                ride_duration = max(self.max_train_time, train.state.speed * distance)
+                ride_duration = min(self.max_train_time, train.state.speed * distance)
                 connection_time = train.get_latest_time_at_stop((60 - ride_duration), intermediate_stop)
                 train.log_rider(person, connection_time, 60)
 

@@ -142,13 +142,10 @@ class PandemicSim:
             self._subway_manager.add_subway(subway_code, subway)
 
 
+
+
         self._id_to_location = OrderedDict({loc.id: loc for loc in locations})
         assert self._registry.location_ids.issuperset(self._id_to_location)
-
-
-        # Add the subways
-        for subway in subway_list:
-            self._id_to_location[subway.id] = subway
 
         self._id_to_person = OrderedDict({p.id: p for p in persons})
         assert self._registry.person_ids.issuperset(self._id_to_person)
@@ -243,7 +240,30 @@ class PandemicSim:
 
         if location.uses_higher_time_scale:
             # For now, this should be subways and apartments
-            help = 0
+            if isinstance(location, Subway):
+                riders = location.riders
+
+                minimum_rider_for_contact = 5
+                
+                for i in range(len(riders)):
+                    visitors = np.array(riders[i])
+                    if (len(riders[i]) < minimum_rider_for_contact):
+                        continue
+                    
+                    cr = location.state.contact_rate.fraction_visitors
+
+                    possible_contacts = list(combinations(visitors, 2))
+                    num_possible_contacts = len(possible_contacts)
+
+                    if len(possible_contacts) == 0:
+                        continue
+
+                    fraction_sample = min(1., max(0., self._numpy_rng.normal(cr, 1e-2)))
+                    real_fraction = int(fraction_sample * num_possible_contacts)
+
+                    contact_idx = self._numpy_rng.randint(0, num_possible_contacts, real_fraction)
+                    contacts.update([possible_contacts[idx] for idx in contact_idx])
+
         else:
             assignees = location.state.assignees_in_location
             visitors = location.state.visitors_in_location
@@ -359,6 +379,9 @@ class PandemicSim:
                 continue
             start_location = self._id_to_location[last_location_id]
             end_location = self._id_to_location[current_location_id]
+
+            if (start_location == end_location):
+                continue
             
             start_coordinates = start_location.coordinates
             end_coordinates = end_location.coordinates
@@ -374,6 +397,9 @@ class PandemicSim:
                 self._contact_tracer.add_contacts(contacts)
 
             self._compute_infection_probabilities(contacts)
+
+            if isinstance(location, Subway):
+                location.riders = []
 
         # call infection model steps
         if self._infection_update_interval.trigger_at_interval(self._state.sim_time):
