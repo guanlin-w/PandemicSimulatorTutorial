@@ -15,12 +15,12 @@ class SubwayState(BusinessLocationState):
     # 0: N, 1: S, 2: E, 3: W
     northbound: bool = False
 
-    start_location: tuple[int, int] = (-1, -1)
+    start_location = (-1, -1)
     
     speed: int = 1
     """Measured in minutes per block"""
 
-    contact_rate: ContactRate = ContactRate(0, 0, 0, 0.0, 0.0, 0.3)
+    contact_rate: ContactRate = ContactRate(0, 0, 0, 0.0, 0.0, 0.05)
 
     open_time: SimTimeTuple = field(default_factory=SimTimeTuple, init=False)
     """Always open"""
@@ -32,7 +32,7 @@ class Subway(EssentialBusinessBaseLocation[SubwayState]):
     """Implements a subway location."""
 
     state_type = SubwayState
-    riders: list[list[PersonID]] = []
+    riders: list[list] = []
 
     def configure_train(self, northbound: bool, start_location: tuple[int, int], speed: int):
         state = cast(SubwayState, self._state)
@@ -78,7 +78,7 @@ class Subway(EssentialBusinessBaseLocation[SubwayState]):
 
 
 class SubwayManager():
-    codes_to_subways: dict[float, Subway] = {}
+    codes_to_subways: dict = {}
     route_entropy_factor: 0.5
     stop_frequency: int = 4
     max_train_time = 25
@@ -127,7 +127,7 @@ class SubwayManager():
             train.log_rider(person, departure_time, 60)
         else:
             # Need both a North/South and East/West train. Default is N/S first, then E/W
-            route_list: list[Subway] = []
+            route_list: list = []
             code = float(origin_stop_coordinates[0])
             train = (self.codes_to_subways[code])
             route_list.append(train)

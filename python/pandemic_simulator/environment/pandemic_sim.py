@@ -9,6 +9,8 @@ import numpy as np
 from orderedset import OrderedSet
 import math
 
+from .interfaces.location import LocationSummary
+
 from .location.subway import SubwayManager, Subway
 
 from .contact_tracing import MaxSlotContactTracer
@@ -84,8 +86,6 @@ class PandemicSim:
         # First, determine total number of "plots" in world grid
         num_locations = len(locations)
         grid_length = int(math.sqrt(num_locations)) + 1
-        grid_size = grid_length ** 2
-        density = num_locations / grid_size
 
 
         # Create list of all open plots
@@ -99,12 +99,6 @@ class PandemicSim:
             plot = available_plots[randint(0, len(available_plots) - 1)]
             available_plots.remove(plot)
             loc.assign_geographic_coordinates(plot)
-
-        # Assign drivers vs. non-drivers
-        driver_percentage = 0.27
-        for person in persons:
-            if random() < driver_percentage:
-                person.set_uses_public_transit(False)
 
         # Set up subways
         self._subway_manager = SubwayManager(0.5, 4, 25, grid_length)
@@ -121,10 +115,11 @@ class PandemicSim:
             subway_id_counter = subway_id_counter + 1
             subway: Subway = Subway(subway_id)
             subway.configure_train(True, start_location, 1)
-            subway_list.append(subway)
             subway_code = x_coordinate + 0.0
             print("adding " + str(subway_code))
             self._subway_manager.add_subway(subway_code, subway)
+            locations.append(subway)
+            
 
         for y_index in range(round(grid_length / stop_frequency)):
             y_coordinate = (int)(stop_frequency) * y_index
@@ -140,9 +135,15 @@ class PandemicSim:
             subway_code = y_coordinate + 0.1
             print("adding " + str(subway_code))
             self._subway_manager.add_subway(subway_code, subway)
-
-
-
+            locations.append(subway)
+            
+         # Assign drivers vs. non-drivers
+        driver_percentage = 0.27
+        for person in persons:
+            if random() < driver_percentage:
+                person.set_uses_public_transit(False)
+            person_type = type(person).__name__
+            self._registry.global_location_summary[('Subway', person_type)] = LocationSummary()
 
         self._id_to_location = OrderedDict({loc.id: loc for loc in locations})
         assert self._registry.location_ids.issuperset(self._id_to_location)
@@ -242,11 +243,15 @@ class PandemicSim:
             # For now, this should be subways and apartments
             if isinstance(location, Subway):
                 riders = location.riders
-
-                minimum_rider_for_contact = 5
+                visitor_set = set()
+                minimum_rider_for_contact = 20
                 
                 for i in range(len(riders)):
                     visitors = np.array(riders[i])
+                    for visitor in visitors:
+                        if visitor not in visitor_set:
+                            visitor_set.add(visitor)
+                            self._registry.register_person_entry_in_location(visitor, location.id)
                     if (len(riders[i]) < minimum_rider_for_contact):
                         continue
                     
@@ -367,19 +372,24 @@ class PandemicSim:
             location.sync(self._state.sim_time)
         self._registry.update_location_specific_information()
 
-        # call person steps (randomize order)
+        # Calculate the subway flip likelihood:
+        using_subway_likelihood = 0.99005
+        
+        # Only decrease until a year has passed.
+        if (self.state.sim_time.year < 1):
+            using_subway_likelihood = 1.0
+
+        # call person steps (randomize order) and update commutes
         for i in self._numpy_rng.randint(0, len(self._persons), len(self._persons)):
-            self._persons[i].step(self._state.sim_time, self._contact_tracer)
+            person = self._persons[i]
+            person.step(self._state.sim_time, self._contact_tracer)
 
-
-        # Generate person commutes, update data structures
-        for person in self._id_to_person.values():
             last_location_id, current_location_id = person.get_commute()
             if last_location_id == '' or current_location_id == '':
                 continue
+
             start_location = self._id_to_location[last_location_id]
             end_location = self._id_to_location[current_location_id]
-
             if (start_location == end_location):
                 continue
             
@@ -388,6 +398,10 @@ class PandemicSim:
 
             if (person.uses_public_transit):
                 self._subway_manager.commute(person.id, start_coordinates, end_coordinates)
+                # Decay use of public transit according to current factor
+                num = random()
+                if num > using_subway_likelihood:
+                    person.set_uses_public_transit(False)
 
         # update person contacts
         for location in self._id_to_location.values():
@@ -396,7 +410,10 @@ class PandemicSim:
             if self._contact_tracer:
                 self._contact_tracer.add_contacts(contacts)
 
+            if isinstance(location, Subway):
+                print('Yee')
             self._compute_infection_probabilities(contacts)
+            print('Haw')
 
             if isinstance(location, Subway):
                 location.riders = []
@@ -445,6 +462,8 @@ class PandemicSim:
     def step_day(self, hours_in_a_day: int = 24) -> None:
         for _ in range(hours_in_a_day):
             self.step()
+        # Modify public transit use according to our decay function
+        print(self.state.sim_time.year)
 
     @staticmethod
     def _get_cr_from_social_distancing(location: Location,
