@@ -116,7 +116,6 @@ class PandemicSim:
             subway: Subway = Subway(subway_id)
             subway.configure_train(True, start_location, 1)
             subway_code = x_coordinate + 0.0
-            print("adding " + str(subway_code))
             self._subway_manager.add_subway(subway_code, subway)
             locations.append(subway)
             
@@ -133,7 +132,6 @@ class PandemicSim:
             subway.configure_train(True, start_location, 1)
             subway_list.append(subway)
             subway_code = y_coordinate + 0.1
-            print("adding " + str(subway_code))
             self._subway_manager.add_subway(subway_code, subway)
             locations.append(subway)
             
@@ -243,15 +241,10 @@ class PandemicSim:
             # For now, this should be subways and apartments
             if isinstance(location, Subway):
                 riders = location.riders
-                visitor_set = set()
                 minimum_rider_for_contact = 20
                 
                 for i in range(len(riders)):
                     visitors = np.array(riders[i])
-                    for visitor in visitors:
-                        if visitor not in visitor_set:
-                            visitor_set.add(visitor)
-                            self._registry.register_person_entry_in_location(visitor, location.id)
                     if (len(riders[i]) < minimum_rider_for_contact):
                         continue
                     
@@ -302,7 +295,7 @@ class PandemicSim:
 
         return contacts
 
-    def _compute_infection_probabilities(self, contacts: OrderedSet) -> None:
+    def _compute_infection_probabilities(self, contacts: OrderedSet, location_id: LocationID) -> None:
         infectious_states = {InfectionSummary.INFECTED, InfectionSummary.CRITICAL}
 
         for c in contacts:
@@ -327,13 +320,13 @@ class PandemicSim:
                 spread_probability = (person1_inf_state.spread_probability *
                                       person1_state.infection_spread_multiplier)
                 person2_state.not_infection_probability *= 1 - spread_probability
-                person2_state.not_infection_probability_history.append((person2_state.current_location,
+                person2_state.not_infection_probability_history.append((location_id,
                                                                         person2_state.not_infection_probability))
             elif person2_inf_state is not None and person2_inf_state.summary in infectious_states:
                 spread_probability = (person2_inf_state.spread_probability *
                                       person2_state.infection_spread_multiplier)
                 person1_state.not_infection_probability *= 1 - spread_probability
-                person1_state.not_infection_probability_history.append((person1_state.current_location,
+                person1_state.not_infection_probability_history.append((location_id,
                                                                         person1_state.not_infection_probability))
 
     def _update_global_testing_state(self, new_result: PandemicTestResult, prev_result: PandemicTestResult) -> None:
@@ -373,10 +366,10 @@ class PandemicSim:
         self._registry.update_location_specific_information()
 
         # Calculate the subway flip likelihood:
-        using_subway_likelihood = 0.99005
+        using_subway_likelihood = 0.98005
         
         # Only decrease until a year has passed.
-        if (self.state.sim_time.year < 1):
+        if (self.state.sim_time.year >= 1):
             using_subway_likelihood = 1.0
 
         # call person steps (randomize order) and update commutes
@@ -396,27 +389,39 @@ class PandemicSim:
             start_coordinates = start_location.coordinates
             end_coordinates = end_location.coordinates
 
+            departure_time = -1
+
             if (person.uses_public_transit):
-                self._subway_manager.commute(person.id, start_coordinates, end_coordinates)
+                departure_time = self._subway_manager.commute(person.id, start_coordinates, end_coordinates)
                 # Decay use of public transit according to current factor
                 num = random()
-                if num > using_subway_likelihood:
+                if num > using_subway_likelihood and self.state.sim_time.hour == 0:
                     person.set_uses_public_transit(False)
+            else:
+                travel_time = min(abs(end_coordinates[0] - start_coordinates[0]) + abs(end_coordinates[1] - start_coordinates[1]), 50)
+                departure_time = 60 - travel_time
+            
+
+        for location in self._id_to_location.values():
+            if isinstance(location, Subway):
+                contacts = self._compute_contacts(location)
+
+                if self._contact_tracer:
+                    self._contact_tracer.add_contacts(contacts)
+                
+                self._compute_infection_probabilities(contacts, location.id)
+                location.riders = []
 
         # update person contacts
         for location in self._id_to_location.values():
-            contacts = self._compute_contacts(location)
+            if not isinstance(location, Subway):
+                contacts = self._compute_contacts(location)
 
-            if self._contact_tracer:
-                self._contact_tracer.add_contacts(contacts)
+                if self._contact_tracer:
+                    self._contact_tracer.add_contacts(contacts)
 
-            if isinstance(location, Subway):
-                print('Yee')
-            self._compute_infection_probabilities(contacts)
-            print('Haw')
-
-            if isinstance(location, Subway):
-                location.riders = []
+                self._compute_infection_probabilities(contacts, location.id)
+                
 
         # call infection model steps
         if self._infection_update_interval.trigger_at_interval(self._state.sim_time):

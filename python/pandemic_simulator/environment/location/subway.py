@@ -68,6 +68,7 @@ class Subway(EssentialBusinessBaseLocation[SubwayState]):
             self.riders.append(temp)
     
     def log_rider(self, person: PersonID, start_time: int, end_time: int):
+        self._registry.register_person_entry_in_location(person, self.id)
         if (len(self.riders) != 60):
             self.configure_riders()
         for i in range((int)(start_time), (int)(end_time), 1):

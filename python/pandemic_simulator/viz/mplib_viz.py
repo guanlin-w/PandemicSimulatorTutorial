@@ -2,6 +2,7 @@
 import string
 from inspect import ismethod
 from typing import List, Any, Dict, Optional, Sequence, Type
+import traceback
 
 import numpy as np
 from cycler import cycler
