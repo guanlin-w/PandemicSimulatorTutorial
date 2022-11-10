@@ -50,6 +50,9 @@ class PandemicSimConfig:
     person_routine_assignment: Optional[PersonRoutineAssignment] = None
     """Person routine assignment instance"""
 
+    home_apartment_ratio: float = 0.0
+    """Specifies percent of homes that are apartments """
+
     def __post_init__(self) -> None:
         for config in self.location_configs:
             if issubclass(config.location_type, Hospital):

@@ -1,7 +1,7 @@
 # Confidential, Copyright 2020, Sony Corporation of America, All rights reserved.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Type, Generic, TypeVar, ClassVar
+from typing import Type, Generic, TypeVar, ClassVar, Tuple
 
 from .ids import PersonID, LocationID
 from .location_rules import LocationRule
@@ -69,7 +69,7 @@ class Location(ABC, Generic[_State]):
 
     @property
     @abstractmethod
-    def coordinates(self) -> tuple[int, int]:
+    def coordinates(self) -> Tuple[int, int]:
         """
         Property that returns the location's geographic coordinates.
 

@@ -2,7 +2,7 @@
 from abc import ABCMeta
 from copy import deepcopy
 from curses import pair_number
-from typing import Optional, cast, TypeVar, Union
+from typing import Optional, cast, TypeVar, Union, Tuple
 from uuid import uuid4
 
 import numpy as np
@@ -31,7 +31,7 @@ class BaseLocation(Location[_State], metaclass=ABCMeta):
     _registry: Registry
     _numpy_rng: np.random.RandomState
     _current_sim_time: SimTime
-    _coordinates: tuple[int, int]
+    _coordinates: Tuple[int, int]
     _uses_higher_time_scale: bool
 
     def __init__(self, loc_id: Union[str, LocationID, None] = None, init_state: Optional[_State] = None):
@@ -67,7 +67,7 @@ class BaseLocation(Location[_State], metaclass=ABCMeta):
         return self._state
     
     @property
-    def coordinates(self) -> tuple[int, int]:
+    def coordinates(self) -> Tuple[int, int]:
         return self._coordinates
 
     @property

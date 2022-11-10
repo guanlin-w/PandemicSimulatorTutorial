@@ -65,7 +65,8 @@ class PandemicSim:
                  new_time_slot_interval: SimTimeInterval = SimTimeInterval(day=1),
                  infection_update_interval: SimTimeInterval = SimTimeInterval(day=1),
                  person_routine_assignment: Optional[PersonRoutineAssignment] = None,
-                 infection_threshold: int = 0):
+                 infection_threshold: int = 0,
+                 apartment_count: float = 0):
         """
         :param locations: A sequence of Location instances.
         :param persons: A sequence of Person instances.
@@ -98,12 +99,26 @@ class PandemicSim:
             for j in range(grid_length):
                 available_plots.append(tuple((i, j)))
 
+        apartment_locations = []
+        apartments = []
+        num_apartments = math.floor(apartment_count)
+
         # For each location, assign it a random plot and remove from available_plots
         for loc in locations:
-            plot = available_plots[randint(0, len(available_plots) - 1)]
-            available_plots.remove(plot)
-            loc.assign_geographic_coordinates(plot)
-
+            if apartment_count != 0 and type(loc) is Home and len(apartment_locations) < num_apartments:
+                apartment_locations.append(loc)
+            else:
+                plot = available_plots[randint(0, len(available_plots) - 1)]
+                available_plots.remove(plot)
+                loc.assign_geographic_coordinates(plot)
+            if type(loc) is Apartment:
+                apartments.append(loc)
+        
+        if num_apartments > 0:
+            apartment_locations = np.array_split(apartment_locations, len(apartments))
+            for apartment, homes in zip(apartments,apartment_locations):
+                for home in homes:
+                    home.update_apartment_complex(apartment)
         # Assign drivers vs. non-drivers
         driver_percentage = 0.27
         for person in persons:
@@ -208,10 +223,17 @@ class PandemicSim:
         # make population
         persons = make_population(sim_config)
 
+
+        apartment_count = sim_config.home_apartment_ratio
+        if apartment_count:
+            apartment_count = sum(isinstance(x, Home) for x in locations) * apartment_count
         # make infection model
         infection_model = SEIRModel(
             spread_probability_params=SpreadProbabilityParams(sim_opts.infection_spread_rate_mean,
                                                               sim_opts.infection_spread_rate_sigma))
+
+
+        
 
         # setup pandemic testing
         pandemic_testing = RandomPandemicTesting(spontaneous_testing_rate=sim_opts.spontaneous_testing_rate,
@@ -232,7 +254,8 @@ class PandemicSim:
                            pandemic_testing=pandemic_testing,
                            contact_tracer=contact_tracer,
                            infection_threshold=sim_opts.infection_threshold,
-                           person_routine_assignment=sim_config.person_routine_assignment)
+                           person_routine_assignment=sim_config.person_routine_assignment,
+                           apartment_count=apartment_count)
 
     @property
     def registry(self) -> Registry:
@@ -407,10 +430,10 @@ class PandemicSim:
                 end_apartment = end_location.apartment
 
             if start_apartment is not None:
-                start_location.commute(person.id,departure_time,False)
+                start_apartment.commute(person.id,departure_time,False)
             
             if end_apartment is not None:
-                end_location.commute(person.id,60,True)
+                end_apartment.commute(person.id,60,True)
 
         # update person contacts
         for location in self._id_to_location.values():

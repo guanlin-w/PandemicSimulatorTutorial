@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from typing import List
-from python.pandemic_simulator.environment.interfaces.ids import LocationID, PersonID
+from pandemic_simulator.environment.interfaces.ids import LocationID, PersonID
 from ..interfaces import LocationState, ContactRate, SimTime, SimTimeTuple, LocationRule, globals, BaseLocation
 
 __all__ = ['Apartment', 'ApartmentState']
@@ -20,7 +20,6 @@ class ApartmentState(LocationState):
     
     """ Determines the speed of the elevator """
     transit_time = 1
-
    
 
  
@@ -28,13 +27,14 @@ class Apartment(BaseLocation[ApartmentState]):
 
     """Implements an Apartment Location"""
 
-
+    state_type = ApartmentState 
     """ Tracks the visitors/riders of the elevators """
     riders: List[List[PersonID]] = []
 
     min_riders_for_contact: int = 2
 
-    travel_time = 1
+    
+
     def configure_apartment(self ):
         self.uses_higher_time_scale = True
 
@@ -61,23 +61,17 @@ class Apartment(BaseLocation[ApartmentState]):
     def get_riders(self) -> List[List[PersonID]]:
         return self.riders
 
-    """ Handles people arriving at the apartment complex """
-    def arrive(self, person: PersonID, arrival_time: int, apartment: Apartment):
-        end_time = arrival_time + self.travel_time
-        apartment.log_rider(person, arrival_time, end_time)
-        
-
     """ Arrival - Destination - say they arrived at 59 """
     def commute(self,person: PersonID, time: int, destination: bool):
         
         if destination:
             """ Assume that people arrive to their destinations on the hour"""
             """ Thus, an elevator event occurs on the 60 - elevator time minute"""
-            self.log_rider(person, 60 - self.travel_time, 60)
+            self.log_rider(person, 60 - self.state.transit_time, 60)
         else:
             """ Handle departures: need to traverse elevator before this """
             departure_time = time
-            elevator_time =  departure_time - self.travel_time
+            elevator_time =  departure_time - self.state.transit_time
         
             """ Assume person used the elevator on the hour if they need to leave on the hour"""
             elevator_time = 0 if elevator_time < 0 else elevator_time

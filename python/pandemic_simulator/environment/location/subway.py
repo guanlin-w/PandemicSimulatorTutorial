@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 import random
-from typing import cast
+from typing import cast, Tuple, List, Dict
 
 from ..interfaces.ids import LocationID, PersonID
 
@@ -15,7 +15,7 @@ class SubwayState(BusinessLocationState):
     # 0: N, 1: S, 2: E, 3: W
     northbound: bool = False
 
-    start_location: tuple[int, int] = (-1, -1)
+    start_location: Tuple[int, int] = (-1, -1)
     
     speed: int = 1
     """Measured in minutes per block"""
@@ -32,17 +32,17 @@ class Subway(EssentialBusinessBaseLocation[SubwayState]):
     """Implements a subway location."""
 
     state_type = SubwayState
-    riders: list[list[PersonID]] = []
+    riders: List[List[PersonID]] = []
     min_riders_for_contact: int = 5
 
-    def configure_train(self, northbound: bool, start_location: tuple[int, int], speed: int):
+    def configure_train(self, northbound: bool, start_location: Tuple[int, int], speed: int):
         state = cast(SubwayState, self._state)
         state.start_location = start_location
         state.northbound = northbound
         state.speed = speed
         self._uses_higher_time_scale = True
     
-    def get_latest_time_at_stop(self, last_minute: int, desired_stop: tuple[int, int]) -> int:
+    def get_latest_time_at_stop(self, last_minute: int, desired_stop: Tuple[int, int]) -> int:
         state = cast(SubwayState, self._state)
 
         time: int = -1
@@ -65,7 +65,7 @@ class Subway(EssentialBusinessBaseLocation[SubwayState]):
 
     def configure_riders(self):
         for i in range(60):
-            temp: list[PersonID] = []
+            temp: List[PersonID] = []
             self.riders.append(temp)
     
     def log_rider(self, person: PersonID, start_time: int, end_time: int):
@@ -74,12 +74,12 @@ class Subway(EssentialBusinessBaseLocation[SubwayState]):
         for i in range((int)(start_time), (int)(end_time), 1):
             self.riders[i].append(person)
 
-    def get_riders(self) -> list[list[PersonID]]:
+    def get_riders(self) -> List[List[PersonID]]:
         return self.riders
 
 
 class SubwayManager():
-    codes_to_subways: dict[float, Subway] = {}
+    codes_to_subways: Dict[float, Subway] = {}
     route_entropy_factor: 0.5
     stop_frequency: int = 4
     max_train_time = 25
@@ -97,7 +97,7 @@ class SubwayManager():
         self.codes_to_subways[subway_code] = subway
     
     # Returns time the person leaves their start location
-    def commute(self, person: PersonID, start_location: tuple[int, int], end_location: tuple[int, int]) -> int:
+    def commute(self, person: PersonID, start_location: Tuple[int, int], end_location: Tuple[int, int]) -> int:
         # From location coordinates, compute nearest stop coordinates:
         origin_stop_coordinates = (self.stop_frequency * (int)(start_location[0] / self.stop_frequency), self.stop_frequency * (int)(start_location[1] / self.stop_frequency))
         destination_stop_coordinates = (self.stop_frequency * (int)(end_location[0] / self.stop_frequency), self.stop_frequency * (int)(end_location[1] / self.stop_frequency))
@@ -128,7 +128,7 @@ class SubwayManager():
             train.log_rider(person, departure_time, 60)
         else:
             # Need both a North/South and East/West train. Default is N/S first, then E/W
-            route_list: list[Subway] = []
+            route_list: List[Subway] = []
             code = float(origin_stop_coordinates[0])
             train = (self.codes_to_subways[code])
             route_list.append(train)

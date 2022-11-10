@@ -71,7 +71,7 @@ class Person(ABC):
         pass
 
     @abstractmethod
-    def get_commute(self) -> tuple[LocationID, LocationID]:
+    def get_commute(self) -> Tuple[LocationID, LocationID]:
         """
         Get the last location and current location of a person.
 

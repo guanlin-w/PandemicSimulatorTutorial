@@ -2,11 +2,11 @@
 
 from .person_routines import DefaultPersonRoutineAssignment
 from ..environment import Home, GroceryStore, Office, School, Hospital, RetailStore, HairSalon, Restaurant, Bar, \
-    PandemicSimConfig, LocationConfig
+    PandemicSimConfig, LocationConfig, Apartment
 
 __all__ = ['town_config', 'small_town_config', 'test_config',
            'tiny_town_config', 'medium_town_config',
-           'above_medium_town_config']
+           'above_medium_town_config', 'city_config']
 
 """
 A few references for the numbers selected:
@@ -102,3 +102,21 @@ test_config = PandemicSimConfig(
         LocationConfig(Bar, num=1, num_assignees=3, state_opts=dict(visitor_capacity=10)),
     ],
     person_routine_assignment=DefaultPersonRoutineAssignment())
+
+city_config = PandemicSimConfig(
+    num_persons=1000,
+    location_configs=[
+        LocationConfig(Home, num=300),
+        LocationConfig(GroceryStore, num=4, num_assignees=5, state_opts=dict(visitor_capacity=30)),
+        LocationConfig(Office, num=5, num_assignees=150, state_opts=dict(visitor_capacity=0)),
+        LocationConfig(School, num=10, num_assignees=4, state_opts=dict(visitor_capacity=30)),
+        LocationConfig(Hospital, num=1, num_assignees=30, state_opts=dict(patient_capacity=10)),
+        LocationConfig(RetailStore, num=4, num_assignees=5, state_opts=dict(visitor_capacity=30)),
+        LocationConfig(HairSalon, num=4, num_assignees=3, state_opts=dict(visitor_capacity=5)),
+        LocationConfig(Restaurant, num=2, num_assignees=6, state_opts=dict(visitor_capacity=30)),
+        LocationConfig(Bar, num=2, num_assignees=5, state_opts=dict(visitor_capacity=30)),
+        LocationConfig(Apartment, num = 2)
+    ],
+    person_routine_assignment=DefaultPersonRoutineAssignment(),
+    home_apartment_ratio = .697,
+    )

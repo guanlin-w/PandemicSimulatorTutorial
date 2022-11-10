@@ -10,3 +10,4 @@ from .restaurant import *
 from .school import *
 from .store import *
 from .utils import *
+from .apartment import *

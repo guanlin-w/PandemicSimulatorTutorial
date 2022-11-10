@@ -102,13 +102,6 @@ class CityRegistry(Registry):
             # if entry to the next location is not allowed
             return False
 
-        
-        # handle apartment entry if applicable
-        if type(next_location) is Home:
-            next_location.process_apartment()
-    
-
-
         # update person and location state
         current_location.remove_person_from_location(person_id)  # exit current
         next_location.add_person_to_location(person_id)  # enter next

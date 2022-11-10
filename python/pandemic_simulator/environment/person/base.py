@@ -1,7 +1,7 @@
 # Confidential, Copyright 2020, Sony Corporation of America, All rights reserved.
 import dataclasses
 from copy import deepcopy
-from typing import Optional, List, Sequence, cast
+from typing import Optional, List, Sequence, cast, Tuple
 
 import numpy as np
 
@@ -223,7 +223,7 @@ class BasePerson(Person):
                     return cast(LocationID, loc_ids[i])
         return None
 
-    def get_commute(self) -> tuple[LocationID, LocationID]:
+    def get_commute(self) -> Tuple[LocationID, LocationID]:
         return tuple((self._last_location, self._state.current_location))
 
     def set_uses_public_transit(self, uses_public_transit: True) -> None:
