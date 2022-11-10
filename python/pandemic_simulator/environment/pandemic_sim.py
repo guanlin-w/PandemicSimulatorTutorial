@@ -11,6 +11,8 @@ import math
 
 from .location.subway import SubwayManager, Subway
 
+from .location.apartment import Apartment
+
 from .contact_tracing import MaxSlotContactTracer
 from .infection_model import SEIRModel, SpreadProbabilityParams
 from .interfaces import ContactRate, ContactTracer, PandemicRegulation, PandemicSimState, PandemicTesting, \
@@ -240,10 +242,11 @@ class PandemicSim:
 
         if location.uses_higher_time_scale:
             # For now, this should be subways and apartments
-            if isinstance(location, Subway):
+            if isinstance(location, Subway) or isinstance(location, Apartment):
                 riders = location.riders
 
-                minimum_rider_for_contact = 5
+                """ 5 riders for Subways, 2 for Apartment contact"""
+                minimum_rider_for_contact = location.min_riders_for_contact
                 
                 for i in range(len(riders)):
                     visitors = np.array(riders[i])
@@ -263,6 +266,8 @@ class PandemicSim:
 
                     contact_idx = self._numpy_rng.randint(0, num_possible_contacts, real_fraction)
                     contacts.update([possible_contacts[idx] for idx in contact_idx])
+            
+
 
         else:
             assignees = location.state.assignees_in_location
