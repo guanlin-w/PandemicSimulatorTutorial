@@ -16,7 +16,8 @@ class ApartmentState(LocationState):
     
 
     """TODO change the contact rate to match elevator contact"""
-    contact_rate: ContactRate = ContactRate(0, 1, 0, 0.2, 0.25, 0.3)
+    """ Everyone is considered a visitor """
+    contact_rate: ContactRate = ContactRate(0, 0, 0, 0, 0, .1)
     
     """ Determines the speed of the elevator """
     transit_time = 1
@@ -33,10 +34,7 @@ class Apartment(BaseLocation[ApartmentState]):
 
     min_riders_for_contact: int = 2
 
-    
-
-    def configure_apartment(self ):
-        self.uses_higher_time_scale = True
+    uses_higher_time_scale = True
 
     def sync(self, sim_time: SimTime) -> None:
         super().sync(sim_time)

@@ -99,26 +99,36 @@ class PandemicSim:
             for j in range(grid_length):
                 available_plots.append(tuple((i, j)))
 
-        apartment_locations = []
+
         apartments = []
         num_apartments = math.floor(apartment_count)
 
-        # For each location, assign it a random plot and remove from available_plots
+        # set aside some homes for the apartments
+        apartment_locations: Sequence[Location] = []
+        new_loc: Sequence[Location] = []
         for loc in locations:
             if apartment_count != 0 and type(loc) is Home and len(apartment_locations) < num_apartments:
                 apartment_locations.append(loc)
             else:
-                plot = available_plots[randint(0, len(available_plots) - 1)]
-                available_plots.remove(plot)
-                loc.assign_geographic_coordinates(plot)
+                new_loc.append(loc)
+        locations = new_loc
+        # For each location, assign it a random plot and remove from available_plots
+        for loc in locations:
+            plot = available_plots[randint(0, len(available_plots) - 1)]
+            available_plots.remove(plot)
+            loc.assign_geographic_coordinates(plot)
+                
             if type(loc) is Apartment:
                 apartments.append(loc)
         
         if num_apartments > 0:
-            apartment_locations = np.array_split(apartment_locations, len(apartments))
-            for apartment, homes in zip(apartments,apartment_locations):
+            rooms = np.array_split(apartment_locations, len(apartments))
+            for apartment, homes in zip(apartments,rooms):
                 for home in homes:
                     home.update_apartment_complex(apartment)
+        # recombine the list back.
+        locations += apartment_locations
+    
         # Assign drivers vs. non-drivers
         driver_percentage = 0.27
         for person in persons:
@@ -286,6 +296,7 @@ class PandemicSim:
                     cr = location.state.contact_rate.fraction_visitors
 
                     possible_contacts = list(combinations(visitors, 2))
+                    
                     num_possible_contacts = len(possible_contacts)
 
                     if len(possible_contacts) == 0:
@@ -455,7 +466,7 @@ class PandemicSim:
 
 
         for location in self._id_to_location.values():
-            if isinstance(location, Subway):
+            if isinstance(location, Subway) or isinstance(location,Apartment):
                 contacts = self._compute_contacts(location)
 
                 if self._contact_tracer:
@@ -466,16 +477,13 @@ class PandemicSim:
 
         # update person contacts
         for location in self._id_to_location.values():
-            if not isinstance(location, Subway):
+            if not isinstance(location, Subway) and not isinstance(location, Apartment):
                 contacts = self._compute_contacts(location)
 
                 if self._contact_tracer:
                     self._contact_tracer.add_contacts(contacts)
 
                 self._compute_infection_probabilities(contacts, location.id)
-                
-            if isinstance(location, Apartment):
-                location.riders=[]
                 
 
 
