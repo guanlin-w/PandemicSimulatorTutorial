@@ -73,3 +73,6 @@ class ApartmentManager():
     def arrive(self, person: PersonID, arrival_time: int, apartment: Apartment):
         end_time = arrival_time + self.travel_time
         apartment.log_rider(person, arrival_time, end_time)
+
+
+        """ Arrival - Destination - say they arrived at 59 """
