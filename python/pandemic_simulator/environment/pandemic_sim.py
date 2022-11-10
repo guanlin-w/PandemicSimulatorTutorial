@@ -136,7 +136,8 @@ class PandemicSim:
                 person.set_uses_public_transit(False)
 
         # Set up subways
-        self._subway_manager = SubwayManager(0.5, 4, 25, grid_length)
+        
+        self._subway_manager = SubwayManager(0.5, 5, 25, grid_length, int(len(persons) / 163))
         stop_frequency = self._subway_manager.stop_frequency
 
         subway_id_counter: int = 0
@@ -172,6 +173,7 @@ class PandemicSim:
             
          # Assign drivers vs. non-drivers
         driver_percentage = 0.27
+
         for person in persons:
             if random() < driver_percentage:
                 person.set_uses_public_transit(False)
@@ -284,16 +286,14 @@ class PandemicSim:
             # For now, this should be subways and apartments
             if isinstance(location, Subway) or isinstance(location, Apartment):
                 riders = location.riders
-
-                """ 5 riders for Subways, 2 for Apartment contact"""
-                minimum_rider_for_contact = location.min_riders_for_contact
                 
                 for i in range(len(riders)):
                     visitors = np.array(riders[i])
-                    if (len(riders[i]) < minimum_rider_for_contact):
-                        continue
-                    
                     cr = location.state.contact_rate.fraction_visitors
+                    if isinstance(location, Subway):
+                        rider_num_divisor_param = 5
+                        rider_density_scale_factor = max(min((len(riders[i]) / rider_num_divisor_param), 4), 1)
+                        cr = cr * rider_density_scale_factor
 
                     possible_contacts = list(combinations(visitors, 2))
                     
@@ -440,11 +440,7 @@ class PandemicSim:
             departure_time = -1
 
             if (person.uses_public_transit):
-                departure_time = departure_time = self._subway_manager.commute(person.id, start_coordinates, end_coordinates)
-                # Decay use of public transit according to current factor
-                num = random()
-                if num > using_subway_likelihood and self.state.sim_time.hour == 0:
-                    person.set_uses_public_transit(False)
+                departure_time = self._subway_manager.commute(person.id, start_coordinates, end_coordinates)
             else:
                 travel_time = min(abs(end_coordinates[0] - start_coordinates[0]) + abs(end_coordinates[1] - start_coordinates[1]), 50)
                 departure_time = 60 - travel_time
