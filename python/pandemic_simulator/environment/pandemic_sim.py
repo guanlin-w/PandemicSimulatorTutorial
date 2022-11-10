@@ -105,7 +105,7 @@ class PandemicSim:
         stop_frequency = self._subway_manager.stop_frequency
 
         subway_id_counter: int = 0
-        subway_list: List[Subway] = []
+        subway_list: list = []
 
         for x_index in range(round(grid_length / stop_frequency)):
             x_coordinate = (int)(stop_frequency) * x_index
