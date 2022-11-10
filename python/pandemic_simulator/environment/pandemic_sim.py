@@ -11,6 +11,7 @@ import math
 
 from .location.subway import SubwayManager, Subway
 
+from .location.home import Home
 from .location.apartment import Apartment
 
 from .contact_tracing import MaxSlotContactTracer
@@ -89,6 +90,7 @@ class PandemicSim:
         grid_size = grid_length ** 2
         density = num_locations / grid_size
 
+        
 
         # Create list of all open plots
         available_plots = []
@@ -391,8 +393,24 @@ class PandemicSim:
             start_coordinates = start_location.coordinates
             end_coordinates = end_location.coordinates
 
+            departure_time = 0
             if (person.uses_public_transit):
-                self._subway_manager.commute(person.id, start_coordinates, end_coordinates)
+                departure_time = self._subway_manager.commute(person.id, start_coordinates, end_coordinates)
+
+
+            start_apartment = None
+            end_apartment = None
+            
+            if type(start_location) is Home:
+                start_apartment = start_location.apartment
+            if type(end_location) is Home:
+                end_apartment = end_location.apartment
+
+            if start_apartment is not None:
+                start_location.commute(person.id,departure_time,False)
+            
+            if end_apartment is not None:
+                end_location.commute(person.id,60,True)
 
         # update person contacts
         for location in self._id_to_location.values():

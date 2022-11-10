@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from typing import List
 from python.pandemic_simulator.environment.interfaces.ids import LocationID, PersonID
 from ..interfaces import LocationState, ContactRate, SimTime, SimTimeTuple, LocationRule, globals, BaseLocation
 
@@ -29,10 +30,11 @@ class Apartment(BaseLocation[ApartmentState]):
 
 
     """ Tracks the visitors/riders of the elevators """
-    riders: list[list[PersonID]] = []
+    riders: List[List[PersonID]] = []
 
     min_riders_for_contact: int = 2
 
+    travel_time = 1
     def configure_apartment(self ):
         self.uses_higher_time_scale = True
 
@@ -46,7 +48,7 @@ class Apartment(BaseLocation[ApartmentState]):
     """ Configure the riders list to track contact list for each minute of the hour"""
     def configure_riders(self):
         for i in range(60):
-            temp: list[PersonID] = []
+            temp: List[PersonID] = []
             self.riders.append(temp)
 
     def log_rider(self, person: PersonID, start_time: int, end_time: int):
@@ -56,23 +58,27 @@ class Apartment(BaseLocation[ApartmentState]):
             self.riders[i].append(person)
         
 
-    def get_riders(self) -> list[list[PersonID]]:
+    def get_riders(self) -> List[List[PersonID]]:
         return self.riders
 
-class ApartmentManager():
-    
-    travel_time = 1
-
-    def __init__(self, travel_time: int):
-        self.travel_time = travel_time
-
-    def add_apartment(self, apartment: Apartment) -> None:
-        self.apartments.append(apartment)
-    
     """ Handles people arriving at the apartment complex """
     def arrive(self, person: PersonID, arrival_time: int, apartment: Apartment):
         end_time = arrival_time + self.travel_time
         apartment.log_rider(person, arrival_time, end_time)
+        
 
-
-        """ Arrival - Destination - say they arrived at 59 """
+    """ Arrival - Destination - say they arrived at 59 """
+    def commute(self,person: PersonID, time: int, destination: bool):
+        
+        if destination:
+            """ Assume that people arrive to their destinations on the hour"""
+            """ Thus, an elevator event occurs on the 60 - elevator time minute"""
+            self.log_rider(person, 60 - self.travel_time, 60)
+        else:
+            """ Handle departures: need to traverse elevator before this """
+            departure_time = time
+            elevator_time =  departure_time - self.travel_time
+        
+            """ Assume person used the elevator on the hour if they need to leave on the hour"""
+            elevator_time = 0 if elevator_time < 0 else elevator_time
+            self.log_rider(person, elevator_time, departure_time)
