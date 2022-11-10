@@ -406,6 +406,10 @@ class PandemicSim:
             if isinstance(location, Subway):
                 location.riders = []
 
+            if isinstance(location, Apartment):
+                location.riders=[]
+                
+
         # call infection model steps
         if self._infection_update_interval.trigger_at_interval(self._state.sim_time):
             global_infection_summary = {s: 0 for s in sorted_infection_summary}

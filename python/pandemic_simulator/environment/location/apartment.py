@@ -49,12 +49,27 @@ class Apartment(BaseLocation[ApartmentState]):
             temp: list[PersonID] = []
             self.riders.append(temp)
 
-    def log_rider(self, person: PersonID, start_time: int):
+    def log_rider(self, person: PersonID, start_time: int, end_time: int):
         if (len(self.riders) != 60):
             self.configure_riders()
-        end_time = start_time + self.state.transit_time
         for i in range((int)(start_time), (int)(end_time), 1):
             self.riders[i].append(person)
+        
 
     def get_riders(self) -> list[list[PersonID]]:
         return self.riders
+
+class ApartmentManager():
+    
+    travel_time = 1
+
+    def __init__(self, travel_time: int):
+        self.travel_time = travel_time
+
+    def add_apartment(self, apartment: Apartment) -> None:
+        self.apartments.append(apartment)
+    
+    """ Handles people arriving at the apartment complex """
+    def arrive(self, person: PersonID, arrival_time: int, apartment: Apartment):
+        end_time = arrival_time + self.travel_time
+        apartment.log_rider(person, arrival_time, end_time)
