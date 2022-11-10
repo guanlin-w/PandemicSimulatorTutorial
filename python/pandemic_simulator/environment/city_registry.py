@@ -9,6 +9,7 @@ from .interfaces import LocationID, Location, PersonID, Person, Registry, Regist
     LocationState
 from pandemic_simulator.environment.interfaces.location_base_business import BusinessBaseLocation
 from .location.cemetery import Cemetery
+from .location.subway import Subway
 from .location.home import Home
 __all__ = ['CityRegistry']
 
@@ -94,18 +95,20 @@ class CityRegistry(Registry):
         self._person_type_to_count[person_type] += 1
 
     def register_person_entry_in_location(self, person_id: PersonID, location_id: LocationID) -> bool:
+        
         person = self._person_register[person_id]
         current_location = self._location_register[person.state.current_location]
         next_location = self._location_register[location_id]
 
-        if next_location.id != current_location.id and not next_location.is_entry_allowed(person_id):
-            # if entry to the next location is not allowed
-            return False
+        if (not isinstance(self._location_register[location_id], Subway)):
+            if next_location.id != current_location.id and not next_location.is_entry_allowed(person_id):
+                # if entry to the next location is not allowed
+                return False
 
-        # update person and location state
-        current_location.remove_person_from_location(person_id)  # exit current
-        next_location.add_person_to_location(person_id)  # enter next
-        person.state.current_location = next_location.id  # update person state
+            # update person and location state
+            current_location.remove_person_from_location(person_id)  # exit current
+            next_location.add_person_to_location(person_id)  # enter next
+            person.state.current_location = next_location.id  # update person state
 
         # update global location summary
         if type(next_location) not in self.IGNORE_LOCS_SUMMARY:

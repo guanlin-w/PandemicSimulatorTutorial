@@ -9,6 +9,8 @@ import numpy as np
 from orderedset import OrderedSet
 import math
 
+from .interfaces.location import LocationSummary
+
 from .location.subway import SubwayManager, Subway
 
 from .location.home import Home
@@ -88,8 +90,6 @@ class PandemicSim:
         # First, determine total number of "plots" in world grid
         num_locations = len(locations)
         grid_length = int(math.sqrt(num_locations)) + 1
-        grid_size = grid_length ** 2
-        density = num_locations / grid_size
 
         
 
@@ -130,7 +130,7 @@ class PandemicSim:
         stop_frequency = self._subway_manager.stop_frequency
 
         subway_id_counter: int = 0
-        subway_list: List[Subway] = []
+        subway_list: list = []
 
         for x_index in range(round(grid_length / stop_frequency)):
             x_coordinate = (int)(stop_frequency) * x_index
@@ -140,10 +140,10 @@ class PandemicSim:
             subway_id_counter = subway_id_counter + 1
             subway: Subway = Subway(subway_id)
             subway.configure_train(True, start_location, 1)
-            subway_list.append(subway)
             subway_code = x_coordinate + 0.0
-            print("adding " + str(subway_code))
             self._subway_manager.add_subway(subway_code, subway)
+            locations.append(subway)
+            
 
         for y_index in range(round(grid_length / stop_frequency)):
             y_coordinate = (int)(stop_frequency) * y_index
@@ -157,11 +157,16 @@ class PandemicSim:
             subway.configure_train(True, start_location, 1)
             subway_list.append(subway)
             subway_code = y_coordinate + 0.1
-            print("adding " + str(subway_code))
             self._subway_manager.add_subway(subway_code, subway)
-
-
-
+            locations.append(subway)
+            
+         # Assign drivers vs. non-drivers
+        driver_percentage = 0.27
+        for person in persons:
+            if random() < driver_percentage:
+                person.set_uses_public_transit(False)
+            person_type = type(person).__name__
+            self._registry.global_location_summary[('Subway', person_type)] = LocationSummary()
 
         self._id_to_location = OrderedDict({loc.id: loc for loc in locations})
         assert self._registry.location_ids.issuperset(self._id_to_location)
@@ -327,7 +332,7 @@ class PandemicSim:
 
         return contacts
 
-    def _compute_infection_probabilities(self, contacts: OrderedSet) -> None:
+    def _compute_infection_probabilities(self, contacts: OrderedSet, location_id: LocationID) -> None:
         infectious_states = {InfectionSummary.INFECTED, InfectionSummary.CRITICAL}
 
         for c in contacts:
@@ -352,13 +357,13 @@ class PandemicSim:
                 spread_probability = (person1_inf_state.spread_probability *
                                       person1_state.infection_spread_multiplier)
                 person2_state.not_infection_probability *= 1 - spread_probability
-                person2_state.not_infection_probability_history.append((person2_state.current_location,
+                person2_state.not_infection_probability_history.append((location_id,
                                                                         person2_state.not_infection_probability))
             elif person2_inf_state is not None and person2_inf_state.summary in infectious_states:
                 spread_probability = (person2_inf_state.spread_probability *
                                       person2_state.infection_spread_multiplier)
                 person1_state.not_infection_probability *= 1 - spread_probability
-                person1_state.not_infection_probability_history.append((person1_state.current_location,
+                person1_state.not_infection_probability_history.append((location_id,
                                                                         person1_state.not_infection_probability))
 
     def _update_global_testing_state(self, new_result: PandemicTestResult, prev_result: PandemicTestResult) -> None:
@@ -397,29 +402,42 @@ class PandemicSim:
             location.sync(self._state.sim_time)
         self._registry.update_location_specific_information()
 
-        # call person steps (randomize order)
+        # Calculate the subway flip likelihood:
+        using_subway_likelihood = 0.98005
+        
+        # Only decrease until a year has passed.
+        if (self.state.sim_time.year >= 1):
+            using_subway_likelihood = 1.0
+
+        # call person steps (randomize order) and update commutes
         for i in self._numpy_rng.randint(0, len(self._persons), len(self._persons)):
-            self._persons[i].step(self._state.sim_time, self._contact_tracer)
+            person = self._persons[i]
+            person.step(self._state.sim_time, self._contact_tracer)
 
-
-        # Generate person commutes, update data structures
-        for person in self._id_to_person.values():
             last_location_id, current_location_id = person.get_commute()
             if last_location_id == '' or current_location_id == '':
                 continue
+
             start_location = self._id_to_location[last_location_id]
             end_location = self._id_to_location[current_location_id]
-
             if (start_location == end_location):
                 continue
             
             start_coordinates = start_location.coordinates
             end_coordinates = end_location.coordinates
 
-            departure_time = 0
-            if (person.uses_public_transit):
-                departure_time = self._subway_manager.commute(person.id, start_coordinates, end_coordinates)
+            departure_time = -1
 
+            if (person.uses_public_transit):
+                departure_time = departure_time = self._subway_manager.commute(person.id, start_coordinates, end_coordinates)
+                # Decay use of public transit according to current factor
+                num = random()
+                if num > using_subway_likelihood and self.state.sim_time.hour == 0:
+                    person.set_uses_public_transit(False)
+            else:
+                travel_time = min(abs(end_coordinates[0] - start_coordinates[0]) + abs(end_coordinates[1] - start_coordinates[1]), 50)
+                departure_time = 60 - travel_time
+            
 
             start_apartment = None
             end_apartment = None
@@ -435,21 +453,31 @@ class PandemicSim:
             if end_apartment is not None:
                 end_apartment.commute(person.id,60,True)
 
-        # update person contacts
+
         for location in self._id_to_location.values():
-            contacts = self._compute_contacts(location)
-
-            if self._contact_tracer:
-                self._contact_tracer.add_contacts(contacts)
-
-            self._compute_infection_probabilities(contacts)
-
             if isinstance(location, Subway):
+                contacts = self._compute_contacts(location)
+
+                if self._contact_tracer:
+                    self._contact_tracer.add_contacts(contacts)
+                
+                self._compute_infection_probabilities(contacts, location.id)
                 location.riders = []
 
+        # update person contacts
+        for location in self._id_to_location.values():
+            if not isinstance(location, Subway):
+                contacts = self._compute_contacts(location)
+
+                if self._contact_tracer:
+                    self._contact_tracer.add_contacts(contacts)
+
+                self._compute_infection_probabilities(contacts, location.id)
+                
             if isinstance(location, Apartment):
                 location.riders=[]
                 
+
 
         # call infection model steps
         if self._infection_update_interval.trigger_at_interval(self._state.sim_time):
@@ -495,6 +523,8 @@ class PandemicSim:
     def step_day(self, hours_in_a_day: int = 24) -> None:
         for _ in range(hours_in_a_day):
             self.step()
+        # Modify public transit use according to our decay function
+        print(self.state.sim_time.year)
 
     @staticmethod
     def _get_cr_from_social_distancing(location: Location,

@@ -20,7 +20,7 @@ class SubwayState(BusinessLocationState):
     speed: int = 1
     """Measured in minutes per block"""
 
-    contact_rate: ContactRate = ContactRate(0, 0, 0, 0.0, 0.0, 0.3)
+    contact_rate: ContactRate = ContactRate(0, 0, 0, 0.0, 0.0, 0.05)
 
     open_time: SimTimeTuple = field(default_factory=SimTimeTuple, init=False)
     """Always open"""
@@ -33,7 +33,7 @@ class Subway(EssentialBusinessBaseLocation[SubwayState]):
 
     state_type = SubwayState
     riders: List[List[PersonID]] = []
-    min_riders_for_contact: int = 5
+    min_riders_for_contact: int = 20
 
     def configure_train(self, northbound: bool, start_location: Tuple[int, int], speed: int):
         state = cast(SubwayState, self._state)
@@ -69,6 +69,7 @@ class Subway(EssentialBusinessBaseLocation[SubwayState]):
             self.riders.append(temp)
     
     def log_rider(self, person: PersonID, start_time: int, end_time: int):
+        self._registry.register_person_entry_in_location(person, self.id)
         if (len(self.riders) != 60):
             self.configure_riders()
         for i in range((int)(start_time), (int)(end_time), 1):
