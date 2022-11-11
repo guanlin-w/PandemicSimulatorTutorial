@@ -53,6 +53,15 @@ class PandemicSimConfig:
     home_apartment_ratio: float = 0.0
     """Specifies percent of homes that are apartments """
 
+    subway_density: float = 0.12,
+    """Specifies the percent of roads that include a subway line"""
+
+    driver_percentage: float = 0.27
+    """Specifies the percent of the population that drives to work"""
+
+    walking_distance: int = 10
+    """Specifies the maximum distance people are willing to walk to commute (in place of taking any subway)"""
+
     def __post_init__(self) -> None:
         for config in self.location_configs:
             if issubclass(config.location_type, Hospital):

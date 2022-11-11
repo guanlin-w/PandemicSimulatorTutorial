@@ -104,9 +104,9 @@ test_config = PandemicSimConfig(
     person_routine_assignment=DefaultPersonRoutineAssignment())
 
 city_config = PandemicSimConfig(
-    num_persons=1000,
+    num_persons=2500,
     location_configs=[
-        LocationConfig(Home, num=300),
+        LocationConfig(Home, num=900),
         LocationConfig(GroceryStore, num=4, num_assignees=5, state_opts=dict(visitor_capacity=30)),
         LocationConfig(Office, num=5, num_assignees=150, state_opts=dict(visitor_capacity=0)),
         LocationConfig(School, num=10, num_assignees=4, state_opts=dict(visitor_capacity=30)),
@@ -115,8 +115,11 @@ city_config = PandemicSimConfig(
         LocationConfig(HairSalon, num=4, num_assignees=3, state_opts=dict(visitor_capacity=5)),
         LocationConfig(Restaurant, num=2, num_assignees=6, state_opts=dict(visitor_capacity=30)),
         LocationConfig(Bar, num=2, num_assignees=5, state_opts=dict(visitor_capacity=30)),
-        LocationConfig(Apartment, num = 2)
+        LocationConfig(Apartment, num = 10)
     ],
     person_routine_assignment=DefaultPersonRoutineAssignment(),
-    home_apartment_ratio = .697,
+    home_apartment_ratio=0.697,
+    subway_density = 0.12,
+    driver_percentage = 0.27,
+    walking_distance=10
     )

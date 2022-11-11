@@ -68,7 +68,10 @@ class PandemicSim:
                  infection_update_interval: SimTimeInterval = SimTimeInterval(day=1),
                  person_routine_assignment: Optional[PersonRoutineAssignment] = None,
                  infection_threshold: int = 0,
-                 apartment_count: float = 0):
+                 apartment_count: float = 0,
+                 subway_density: float = 0,
+                 driver_percentage: float = 1.0,
+                 walking_distance: float = 10):
         """
         :param locations: A sequence of Location instances.
         :param persons: A sequence of Person instances.
@@ -86,19 +89,6 @@ class PandemicSim:
         self._registry = globals.registry
         self._numpy_rng = globals.numpy_rng
 
-        # Assign geographic data to locations:
-        # First, determine total number of "plots" in world grid
-        num_locations = len(locations)
-        grid_length = int(math.sqrt(num_locations)) + 1
-
-        
-
-        # Create list of all open plots
-        available_plots = []
-        for i in range(grid_length):
-            for j in range(grid_length):
-                available_plots.append(tuple((i, j)))
-
 
         apartments = []
         num_apartments = math.floor(apartment_count)
@@ -112,6 +102,18 @@ class PandemicSim:
             else:
                 new_loc.append(loc)
         locations = new_loc
+
+        # Assign geographic data to locations:
+        # First, determine total number of "plots" in world grid
+        num_locations = len(locations)
+        grid_length = int(math.sqrt(num_locations)) + 1
+
+        # Create list of all open plots
+        available_plots = []
+        for i in range(grid_length):
+            for j in range(grid_length):
+                available_plots.append(tuple((i, j)))
+
         # For each location, assign it a random plot and remove from available_plots
         for loc in locations:
             plot = available_plots[randint(0, len(available_plots) - 1)]
@@ -129,22 +131,18 @@ class PandemicSim:
                     
         # recombine the list back.
         locations += apartment_locations
-    
-        # Assign drivers vs. non-drivers
-        driver_percentage = 0.27
-        for person in persons:
-            if random() < driver_percentage:
-                person.set_uses_public_transit(False)
 
         # Set up subways
-        
-        self._subway_manager = SubwayManager(0.5, 5, 25, grid_length, int(len(persons) / 163))
+        stop_frequency = max((int)(subway_density * grid_length), 1)
+
+        self._subway_manager = SubwayManager(0.5, stop_frequency, 25, grid_length, int(len(persons) / 163), walking_distance)
         stop_frequency = self._subway_manager.stop_frequency
 
         subway_id_counter: int = 0
         subway_list: list = []
 
-        for x_index in range(round(grid_length / stop_frequency)):
+
+        for x_index in range(math.ceil(grid_length / stop_frequency)):
             x_coordinate = (int)(stop_frequency) * x_index
             y_coordinate = randint(0, grid_length - 1)
             start_location = (x_coordinate, y_coordinate)
@@ -157,7 +155,7 @@ class PandemicSim:
             locations.append(subway)
             
 
-        for y_index in range(round(grid_length / stop_frequency)):
+        for y_index in range(math.ceil(grid_length / stop_frequency)):
             y_coordinate = (int)(stop_frequency) * y_index
             x_coordinate = randint(0, grid_length - 1)
 
@@ -171,10 +169,9 @@ class PandemicSim:
             subway_code = y_coordinate + 0.1
             self._subway_manager.add_subway(subway_code, subway)
             locations.append(subway)
-            
-         # Assign drivers vs. non-drivers
-        driver_percentage = 0.27
 
+
+        # Assign drivers vs. non-drivers
         for person in persons:
             if random() < driver_percentage:
                 person.set_uses_public_transit(False)
@@ -241,10 +238,21 @@ class PandemicSim:
         # make population
         persons = make_population(sim_config)
 
+        # configure apartments
+        apartment_count = 0
+        apartment_building_ratio = sim_config.home_apartment_ratio
+        if apartment_building_ratio:    
+            num_apartments = 0
+            num_homes = 0
+            for location in locations:
+                if (isinstance(location, Apartment)):
+                    num_apartments = num_apartments + 1
+                if (isinstance(location, Home)):
+                    num_homes = num_homes + 1
+            
+            home_home_count = (int)(num_apartments / apartment_building_ratio - num_apartments)
 
-        apartment_count = sim_config.home_apartment_ratio
-        if apartment_count:
-            apartment_count = sum(isinstance(x, Home) for x in locations) * apartment_count
+            apartment_count = num_homes - home_home_count
         # make infection model
         infection_model = SEIRModel(
             spread_probability_params=SpreadProbabilityParams(sim_opts.infection_spread_rate_mean,
@@ -273,7 +281,10 @@ class PandemicSim:
                            contact_tracer=contact_tracer,
                            infection_threshold=sim_opts.infection_threshold,
                            person_routine_assignment=sim_config.person_routine_assignment,
-                           apartment_count=apartment_count)
+                           apartment_count=apartment_count,
+                           subway_density=sim_config.subway_density,
+                           driver_percentage=sim_config.driver_percentage,
+                           walking_distance=sim_config.walking_distance)
 
     @property
     def registry(self) -> Registry:
@@ -295,7 +306,6 @@ class PandemicSim:
                         rider_num_divisor_param = 5
                         rider_density_scale_factor = max(min((len(riders[i]) / rider_num_divisor_param), 4), 1)
                         cr = cr * rider_density_scale_factor
-
                     possible_contacts = list(combinations(visitors, 2))
                     
                     num_possible_contacts = len(possible_contacts)
@@ -414,13 +424,6 @@ class PandemicSim:
             location.sync(self._state.sim_time)
         self._registry.update_location_specific_information()
 
-        # Calculate the subway flip likelihood:
-        using_subway_likelihood = 0.98005
-        
-        # Only decrease until a year has passed.
-        if (self.state.sim_time.year >= 1):
-            using_subway_likelihood = 1.0
-
         # call person steps (randomize order) and update commutes
         for i in self._numpy_rng.randint(0, len(self._persons), len(self._persons)):
             person = self._persons[i]
@@ -439,12 +442,12 @@ class PandemicSim:
             end_coordinates = end_location.coordinates
 
             departure_time = -1
-
+            arrival_time = randint(30, 60)
             if (person.uses_public_transit):
-                departure_time = self._subway_manager.commute(person.id, start_coordinates, end_coordinates)
+                departure_time = self._subway_manager.commute(person.id, start_coordinates, end_coordinates, arrival_time)
             else:
                 travel_time = min(abs(end_coordinates[0] - start_coordinates[0]) + abs(end_coordinates[1] - start_coordinates[1]), 50)
-                departure_time = 60 - travel_time
+                departure_time = arrival_time - travel_time
             
 
             start_apartment = None
@@ -459,7 +462,7 @@ class PandemicSim:
                 start_apartment.commute(person.id,departure_time,False)
             
             if end_apartment is not None:
-                end_apartment.commute(person.id,60,True)
+                end_apartment.commute(person.id,arrival_time,True)
 
 
         for location in self._id_to_location.values():

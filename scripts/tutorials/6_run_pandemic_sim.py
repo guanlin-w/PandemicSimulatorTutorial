@@ -13,7 +13,7 @@ def run_pandemic_sim() -> None:
     ps.init_globals(seed=1)
 
     # select a simulator config
-    sim_config = ps.sh.small_town_config
+    sim_config = ps.sh.city_config
 
     # make sim
     sim = ps.env.PandemicSim.from_config(sim_config)
