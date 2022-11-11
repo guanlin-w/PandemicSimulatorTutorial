@@ -126,6 +126,7 @@ class PandemicSim:
             for apartment, homes in zip(apartments,rooms):
                 for home in homes:
                     home.update_apartment_complex(apartment)
+                    
         # recombine the list back.
         locations += apartment_locations
     

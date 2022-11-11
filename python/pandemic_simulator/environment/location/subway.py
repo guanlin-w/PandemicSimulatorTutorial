@@ -33,7 +33,6 @@ class Subway(EssentialBusinessBaseLocation[SubwayState]):
 
     state_type = SubwayState
     riders: List[List[PersonID]] = []
-    min_riders_for_contact: int = 20
 
     def configure_train(self, northbound: bool, start_location: Tuple[int, int], speed: int):
         state = cast(SubwayState, self._state)

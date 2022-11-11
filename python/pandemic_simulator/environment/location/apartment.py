@@ -7,17 +7,15 @@ from ..interfaces import LocationState, ContactRate, SimTime, SimTimeTuple, Loca
 __all__ = ['Apartment', 'ApartmentState']
 
 # Apartments are collections of homes connected by an elevator contact point
-# Implementation wise, Apartments will contain a collection of homes, representing
-# Apartment units
+# This emulates elevators, stairs, and hallways where potential brief interaction points
+# can occur
 
 # simulates the contact rate in the elevators and common areas
 @dataclass
 class ApartmentState(LocationState):
     
-
-    """TODO change the contact rate to match elevator contact"""
     """ Everyone is considered a visitor """
-    contact_rate: ContactRate = ContactRate(0, 0, 0, 0, 0, .1)
+    contact_rate: ContactRate = ContactRate(0, 0, 0, 0, 0, 0.0033)
     
     """ Determines the speed of the elevator """
     transit_time = 1
@@ -31,8 +29,6 @@ class Apartment(BaseLocation[ApartmentState]):
     state_type = ApartmentState 
     """ Tracks the visitors/riders of the elevators """
     riders: List[List[PersonID]] = []
-
-    min_riders_for_contact: int = 2
 
     uses_higher_time_scale = True
 
