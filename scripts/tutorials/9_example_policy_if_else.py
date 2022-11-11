@@ -16,7 +16,7 @@ def run_pandemic_gym_env() -> None:
     ps.init_globals(seed=104923490)
 
     # select a simulator config
-    sim_config = ps.sh.small_town_config
+    sim_config = ps.sh.city_config
 
     # make env
 

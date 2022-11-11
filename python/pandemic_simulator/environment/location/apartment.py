@@ -17,7 +17,7 @@ class ApartmentState(LocationState):
 
     """TODO change the contact rate to match elevator contact"""
     """ Everyone is considered a visitor """
-    contact_rate: ContactRate = ContactRate(0, 0, 0, 0, 0, .1)
+    contact_rate: ContactRate = ContactRate(0, 0, 0, 0, 0, .05)
     
     """ Determines the speed of the elevator """
     transit_time = 1
@@ -61,16 +61,8 @@ class Apartment(BaseLocation[ApartmentState]):
 
     """ Arrival - Destination - say they arrived at 59 """
     def commute(self,person: PersonID, time: int, destination: bool):
-        
-        if destination:
-            """ Assume that people arrive to their destinations on the hour"""
-            """ Thus, an elevator event occurs on the 60 - elevator time minute"""
-            self.log_rider(person, 60 - self.state.transit_time, 60)
-        else:
-            """ Handle departures: need to traverse elevator before this """
-            departure_time = time
-            elevator_time =  departure_time - self.state.transit_time
-        
-            """ Assume person used the elevator on the hour if they need to leave on the hour"""
-            elevator_time = 0 if elevator_time < 0 else elevator_time
-            self.log_rider(person, elevator_time, departure_time)
+        elevator_time =  time - self.state.transit_time
+    
+        """ Assume person used the elevator on the hour if they need to leave on the hour"""
+        elevator_time = 0 if elevator_time < 0 else elevator_time
+        self.log_rider(person, elevator_time, time)

@@ -47,6 +47,9 @@ class Subway(EssentialBusinessBaseLocation[SubwayState]):
 
         time: int = -1
 
+        if last_minute <= 0:
+            return 0
+
         # North/South train, station reachable
         if (state.start_location[0] == desired_stop[0] and state.northbound):
             y_diff = (desired_stop[1] - state.start_location[1])
@@ -85,16 +88,17 @@ class SubwayManager():
     stop_frequency: int = 4
     max_train_time = 25
     train_route_length: int = 0
-    walking_threshold: int = 25
+    walking_threshold: int = 15
     train_count: int = 0
     train_capacity: int = 0
 
-    def __init__(self, route_entropy_factor: float, stop_frequency: int, max_train_time: int, train_route_length: int, train_capacity: int):
+    def __init__(self, route_entropy_factor: float, stop_frequency: int, max_train_time: int, train_route_length: int, train_capacity: int, walking_threshold: int):
         self.route_entropy_factor = route_entropy_factor
         self.stop_frequency = stop_frequency
         self.max_train_time = max_train_time
         self.train_route_length = train_route_length
         self.train_capacity = train_capacity
+        self.walking_threshold = walking_threshold
 
     # Adds the subway to the collection for routing.
     def add_subway(self, subway_code: float, subway: Subway) -> None:
@@ -102,19 +106,19 @@ class SubwayManager():
         self.codes_to_subways[subway_code] = subway
     
     # Returns time the person leaves their start location
-    def commute(self, person: PersonID, start_location: Tuple[int, int], end_location: Tuple[int, int]) -> int:
+    def commute(self, person: PersonID, start_location: Tuple[int, int], end_location: Tuple[int, int], arrival_time: int) -> int:
         # From location coordinates, compute nearest stop coordinates:
         origin_stop_coordinates = (self.stop_frequency * (int)(start_location[0] / self.stop_frequency), self.stop_frequency * (int)(start_location[1] / self.stop_frequency))
         destination_stop_coordinates = (self.stop_frequency * (int)(end_location[0] / self.stop_frequency), self.stop_frequency * (int)(end_location[1] / self.stop_frequency))
 
         if (origin_stop_coordinates == destination_stop_coordinates):
-            return 60
+            return arrival_time
 
         manhattan_distance = abs(end_location[1] - start_location[1]) + abs(end_location[0] - start_location[0])
 
         if (manhattan_distance < self.walking_threshold):
             # They will walk
-            return 60 - manhattan_distance
+            return arrival_time - manhattan_distance
 
         departure_time = -1
         if (origin_stop_coordinates[0] == destination_stop_coordinates[0]):
@@ -126,8 +130,8 @@ class SubwayManager():
             delta = destination_stop_coordinates[1] - origin_stop_coordinates[1]
             distance = delta if delta > 0 else self.train_route_length + delta
             ride_duration = min(self.max_train_time, train.state.speed * distance)
-            departure_time = train.get_latest_time_at_stop((60 - ride_duration), destination_stop_coordinates)
-            train.log_rider(person, departure_time, 60)
+            departure_time = train.get_latest_time_at_stop((arrival_time - ride_duration), destination_stop_coordinates)
+            train.log_rider(person, departure_time, arrival_time)
         elif (origin_stop_coordinates[1] == destination_stop_coordinates[1]):    
             self.train_count = self.train_count + 1    
             # Only need 1 East/West train
@@ -137,8 +141,8 @@ class SubwayManager():
             delta = destination_stop_coordinates[0] - origin_stop_coordinates[0]
             distance = delta if delta > 0 else self.train_route_length + delta
             ride_duration = min(self.max_train_time, train.state.speed * distance)
-            departure_time = train.get_latest_time_at_stop((60 - ride_duration), destination_stop_coordinates)
-            train.log_rider(person, departure_time, 60)
+            departure_time = train.get_latest_time_at_stop((arrival_time - ride_duration), destination_stop_coordinates)
+            train.log_rider(person, departure_time, arrival_time)
         else:
             # Need both a North/South and East/West train. Default is N/S first, then E/W
             route_list: List[Subway] = []
@@ -159,8 +163,8 @@ class SubwayManager():
                 delta = intermediate_stop[1] - origin_stop_coordinates[1]
                 distance = delta if delta > 0 else self.train_route_length + delta
                 ride_duration = min(self.max_train_time, train.state.speed * distance)
-                connection_time = train.get_latest_time_at_stop((60 - ride_duration), intermediate_stop)
-                train.log_rider(person, connection_time, 60)
+                connection_time = train.get_latest_time_at_stop((arrival_time - ride_duration), intermediate_stop)
+                train.log_rider(person, connection_time, arrival_time)
 
                 # Now repeat for first leg
                 train = (route_list[0])
@@ -176,8 +180,8 @@ class SubwayManager():
                 delta = intermediate_stop[0] - origin_stop_coordinates[0]
                 distance = delta if delta > 0 else self.train_route_length + delta
                 ride_duration = min(self.max_train_time, train.state.speed * distance)
-                connection_time = train.get_latest_time_at_stop((60 - ride_duration), intermediate_stop)
-                train.log_rider(person, connection_time, 60)
+                connection_time = train.get_latest_time_at_stop((arrival_time - ride_duration), intermediate_stop)
+                train.log_rider(person, connection_time, arrival_time)
 
                 # Now repeat for first leg
                 train = (route_list[0])
